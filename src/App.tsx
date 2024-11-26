@@ -26,10 +26,16 @@ interface Option {
     label: string;
 }
 
-
 const parseDate = (dateString: string): Date => {
     const [day, month, year] = dateString.split('.');
     return new Date(`${year}-${month}-${day}`);
+}
+
+const formatDate = (date: Date): string => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
 }
 
 const App: React.FC = () => {
@@ -52,7 +58,7 @@ const App: React.FC = () => {
                         const sortedUsages = result.data.map((usage: unknown) => {
                             return ({
                                 ...usage as Usage,
-                                created_at: parseDate((usage as Usage).created_at).toLocaleDateString('ru-RU')
+                                created_at: formatDate(parseDate((usage as Usage).created_at))
                             });
                         }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                         setUsages(sortedUsages);
@@ -89,7 +95,7 @@ const App: React.FC = () => {
 
     const filteredUsages = useMemo(() => {
         return usages.filter((usage) => {
-            const usageDate = new Date(usage.created_at);
+            const usageDate = parseDate(usage.created_at);
             return (
                 (!selectedType || usage.type === selectedType.value) &&
                 (!selectedModel || usage.model === selectedModel.value) &&
@@ -102,7 +108,7 @@ const App: React.FC = () => {
     const groupByDay = useMemo(() => {
         const dailyCosts: { [key: string]: number } = {};
         filteredUsages.forEach((usage) => {
-            const date = parseDate(usage.created_at).toLocaleDateString('ru-RU');
+            const date = usage.created_at;
             const cost = calculateTotalCost(usage);
 
             if (date && date in dailyCosts) {
@@ -112,10 +118,14 @@ const App: React.FC = () => {
             }
         });
 
-        return Object.keys(dailyCosts).sort().map((date) => ({
+        return Object.keys(dailyCosts).map((date) => ({
             date,
             cost: dailyCosts[date],
-        }));
+        })).sort((a, b) => {
+            const dateA = parseDate(a.date);
+            const dateB = parseDate(b.date);
+            return dateA.getTime() - dateB.getTime();
+        });
     }, [filteredUsages, calculateTotalCost]);
 
     const chartData = useMemo(() => ({
@@ -129,6 +139,20 @@ const App: React.FC = () => {
             },
         ],
     }), [groupByDay]);
+
+    const minDate = useMemo(() => {
+        if (groupByDay.length > 0) {
+            return parseDate(groupByDay[0].date);
+        }
+        return undefined;
+    }, [groupByDay]);
+
+    const maxDate = useMemo(() => {
+        if (groupByDay.length > 0) {
+            return parseDate(groupByDay[groupByDay.length - 1].date);
+        }
+        return undefined;
+    }, [groupByDay]);
 
     const types = useMemo(() => [...new Set(usages.map((usage) => usage.type))].map(type => ({ value: type, label: type })), [usages]);
     const models = useMemo(() => [...new Set(usages.map((usage) => usage.model))].map(model => ({ value: model, label: model })), [usages]);
@@ -159,6 +183,9 @@ const App: React.FC = () => {
                     selectsStart
                     startDate={startDate}
                     endDate={endDate}
+                    minDate={minDate}
+                    maxDate={maxDate}
+                    dateFormat="dd.MM.yyyy"
                     placeholderText="Start date"
                     className="date-picker"
                 />
@@ -169,6 +196,8 @@ const App: React.FC = () => {
                     startDate={startDate}
                     endDate={endDate}
                     minDate={startDate}
+                    maxDate={maxDate}
+                    dateFormat="dd.MM.yyyy"
                     placeholderText="End date"
                     className="date-picker"
                 />
