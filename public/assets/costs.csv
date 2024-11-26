@@ -1,0 +1,4 @@
+model,input,output
+model1,0.001,0.003
+model2,0.002,0.004
+model3,0.003,0.005
